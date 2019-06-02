@@ -3,15 +3,16 @@ import * as expressBasicAuth from 'express-basic-auth'
 import * as http from 'http'
 import * as prometheus from 'prom-client'
 import * as winston from 'winston'
-import { initializeHealthCheck, loadHealthChecks } from '../HealthCheck'
+import { initializeHealthCheck, initializeMetrics, loadHealthChecks, PrometheusLabelValue } from '../HealthCheck'
 
 export interface Args {
   verbose: boolean
   directory: string
-  auth?: string
+  additionalLabels: PrometheusLabelValue[]
+  metricsAuth?: string
 }
 
-export default async function({ verbose, directory, auth }: Args) {
+export default async function({ verbose, directory, additionalLabels, metricsAuth }: Args) {
   const logger = winston.createLogger({
     level: !verbose ? 'info' : 'debug',
     format: winston.format.simple(),
@@ -21,17 +22,18 @@ export default async function({ verbose, directory, auth }: Args) {
   const app = express()
   const healthChecks = await loadHealthChecks(directory)
   if (healthChecks.length > 0) {
+    const metrics = initializeMetrics(additionalLabels)
     healthChecks.forEach(healthCheck => {
       logger.info(`Loaded healthcheck ${healthCheck.name}`)
-      initializeHealthCheck(logger, healthCheck)
+      initializeHealthCheck(logger, metrics, healthCheck, additionalLabels)
     })
   } else {
     logger.warn('Could not find any healthchecks')
   }
 
-  const authMiddelware: express.Handler = auth
+  const metricsAuthMiddelware: express.Handler = metricsAuth
     ? (req, res, next) => {
-        const [username, password] = auth.split(':', 2)
+        const [username, password] = metricsAuth.split(':', 2)
         const middleware = expressBasicAuth({
           challenge: true,
           users: {
@@ -42,7 +44,7 @@ export default async function({ verbose, directory, auth }: Args) {
       }
     : (_req, _res, next) => next()
 
-  app.get('/metrics', authMiddelware, (_req, res) => {
+  app.get('/metrics', metricsAuthMiddelware, (_req, res) => {
     res.set('Content-Type', prometheus.register.contentType)
     res.end(prometheus.register.metrics())
   })

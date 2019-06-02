@@ -21,6 +21,11 @@ export interface AlertmanagerRule {
   }
 }
 
+export interface PrometheusLabelValue {
+  label: string
+  value: string
+}
+
 export interface HealthCheckDurationBuckets {
   minSeconds: number
   maxSeconds: number
@@ -35,7 +40,6 @@ export interface HealthCheckExecutionResult {
 export interface HealthCheck {
   name: string
   cron: string
-  durationBuckets: HealthCheckDurationBuckets
   alertmanagerRules?: AlertmanagerRule[]
   execute: (logger: winston.Logger, test?: boolean) => Promise<HealthCheckExecutionResult>
 }
@@ -53,25 +57,43 @@ export async function loadHealthChecks(directory: string): Promise<HealthCheck[]
   return healthChecks
 }
 
-export function initializeHealthCheck(logger: winston.Logger, healthCheck: HealthCheck): CronJob {
-  const minSeconds = healthCheck.durationBuckets.minSeconds
-  const maxSeconds = healthCheck.durationBuckets.maxSeconds
-  const precision = healthCheck.durationBuckets.precision || 0.1
+export function initializeMetrics(additionalLabels: PrometheusLabelValue[]) {
+  const labelNames = ['check', ...additionalLabels.map(l => l.label)]
+
+  const minSeconds = 0.1
+  const maxSeconds = 30
+  const precision = 0.1
   const steps = Math.ceil(Math.log(maxSeconds / minSeconds) / Math.log(1 + precision)) + 1
   const buckets = range(0, steps).map(i => Math.pow(1 + precision, i) * minSeconds)
-  const durationHistogram = new prometheus.Histogram({
-    name: `healthcheckr_${healthCheck.name}_duration_seconds`,
-    help: healthCheck.name,
-    buckets,
-  })
 
-  const successCounter = new prometheus.Counter({
-    name: `healthcheckr_${healthCheck.name}_success_count`,
-    help: healthCheck.name,
-  })
-  const failureCounter = new prometheus.Counter({
-    name: `healthcheckr_${healthCheck.name}_failure_count`,
-    help: healthCheck.name,
+  return {
+    durationHistogram: new prometheus.Histogram({
+      name: 'healthcheckr_duration_seconds',
+      help: 'Execution duration',
+      buckets,
+      labelNames,
+    }),
+    successCounter: new prometheus.Counter({
+      name: 'healthcheckr_success_count',
+      help: 'Execution duration',
+      labelNames,
+    }),
+    failureCounter: new prometheus.Counter({
+      name: 'healthcheckr_failure_count',
+      help: 'Execution duration',
+      labelNames,
+    }),
+  }
+}
+
+export function initializeHealthCheck(
+  logger: winston.Logger,
+  metrics: ReturnType<typeof initializeMetrics>,
+  healthCheck: HealthCheck,
+  additionalLabels: PrometheusLabelValue[]
+): CronJob {
+  const labels = additionalLabels.reduce((acc, { label, value }) => ({ ...acc, [label]: value }), {
+    check: healthCheck.name,
   })
 
   return new CronJob(
@@ -79,11 +101,11 @@ export function initializeHealthCheck(logger: winston.Logger, healthCheck: Healt
     async () => {
       try {
         const result = await runHealthCheck(logger, healthCheck)
-        durationHistogram.observe(result.duration)
+        metrics.durationHistogram.observe(labels, result.duration)
         if (!result.error) {
-          successCounter.inc()
+          metrics.successCounter.inc(labels)
         } else {
-          failureCounter.inc()
+          metrics.failureCounter.inc(labels)
         }
       } catch (err) {
         logger.error('An error occured', {

@@ -33,10 +33,35 @@ export async function main() {
         'start',
         'starts the healthchecks watcher',
         yargs =>
-          yargs.option('auth', {
-            type: 'string',
-          }),
-        startCommand
+          yargs
+            .option('label', {
+              type: 'array',
+              alias: 'l',
+              coerce: (arr: string[]) => {
+                return arr.map(raw => {
+                  const match = raw.match(/^([^=]+)=([^=]+)$/)
+                  if (match) {
+                    return {
+                      label: match[1],
+                      value: match[2],
+                    }
+                  } else {
+                    throw new Error(`Unable to parse label definition '${raw}'`)
+                  }
+                })
+              },
+            })
+            .option('auth', {
+              type: 'string',
+              alias: 'a',
+            }),
+        yargs =>
+          startCommand({
+            verbose: yargs.verbose,
+            directory: yargs.directory,
+            additionalLabels: (yargs.label as any) || [],
+            metricsAuth: yargs.auth,
+          })
       )
       .command('test', 'test the healthchecks', yargs => yargs, testCommand)
       .command('alertmanager-rules', 'exports prometheus alertmanager rules', yargs => yargs, alertmanagerRulesCommand)

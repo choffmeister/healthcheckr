@@ -11,10 +11,6 @@ export function browserTemplate(name: string, opts: BrowserTemplateOpts): Health
   return {
     name,
     cron: opts.cron,
-    durationBuckets: {
-      minSeconds: 1,
-      maxSeconds: 10,
-    },
     execute: async (_logger, test) => {
       const browser = await puppeteer.launch({
         headless: !test,

@@ -1,20 +1,9 @@
-import axios from 'axios'
-import { HealthCheck } from '../src/HealthCheck'
-import { measureDuration } from '../src/utils'
+import { httpTemplate } from '../src'
 
-const googleHealthCheck: HealthCheck = {
-  name: 'google_http',
+export default httpTemplate('google_http', {
   cron: '*/5 * * * * *',
-  buckets: {
-    minSeconds: 0.1,
-    maxSeconds: 5.0,
+  request: {
+    method: 'get',
+    url: 'https://google.com',
   },
-  execute: async () => {
-    const [, duration] = await measureDuration(async () => {
-      await axios.get('https://google.com')
-    })
-    return duration
-  },
-}
-
-export default googleHealthCheck
+})

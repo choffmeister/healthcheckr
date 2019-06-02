@@ -6,6 +6,7 @@ import { default as startCommand } from './commands/start'
 import { default as testCommand } from './commands/test'
 
 export * from './HealthCheck'
+export * from './templates'
 export * from './utils'
 
 const baseLogger = winston.createLogger({
@@ -44,7 +45,7 @@ export async function main() {
       .help()
       .strict().argv
   } catch (err) {
-    baseLogger.error('Starting the server failed', { err })
+    baseLogger.error('Starting the server failed', { error: (err && err.message) || undefined })
     process.exit(1)
   }
 }

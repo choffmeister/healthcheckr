@@ -14,19 +14,10 @@ export default async function({ directory }: Args) {
       data: {
         'healthcheckr.rules.yaml': yaml.safeDump({
           groups: healthChecks
-            .filter(hc => hc.alerts && hc.alerts.length > 0)
+            .filter(hc => hc.alertmanagerRules && hc.alertmanagerRules.length > 0)
             .map(healthCheck => ({
               name: `${healthCheck.name}.rules`,
-              rules: healthCheck.alerts!.map(alert => ({
-                alert: alert.name,
-                annotations: {
-                  message: alert.message,
-                },
-                expr: alert.expression,
-                labels: {
-                  severity: alert.severity,
-                },
-              })),
+              rules: healthCheck.alertmanagerRules!,
             })),
         }),
       },

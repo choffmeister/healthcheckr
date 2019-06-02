@@ -5,25 +5,39 @@ import * as path from 'path'
 import * as prometheus from 'prom-client'
 import * as winston from 'winston'
 
-export interface HealthCheckBuckets {
+export interface AlertmanagerRule {
+  alert: string
+  annotations: {
+    summary?: string
+    description?: string
+    message?: string
+    runbook_url?: string
+  }
+  expr: string
+  for?: string
+  labels: {
+    severity: 'none' | 'warning' | 'critical'
+    [key: string]: string
+  }
+}
+
+export interface HealthCheckDurationBuckets {
   minSeconds: number
   maxSeconds: number
   precision?: number
 }
 
-export interface HealthCheckAlert {
-  name: string
-  message: string
-  expression: string
-  severity: 'none' | 'warning' | 'critical'
+export interface HealthCheckExecutionResult {
+  error?: any
+  duration: number
 }
 
 export interface HealthCheck {
   name: string
   cron: string
-  buckets: HealthCheckBuckets
-  alerts?: HealthCheckAlert[]
-  execute: (logger: winston.Logger, test?: boolean) => Promise<number>
+  durationBuckets: HealthCheckDurationBuckets
+  alertmanagerRules?: AlertmanagerRule[]
+  execute: (logger: winston.Logger, test?: boolean) => Promise<HealthCheckExecutionResult>
 }
 
 export async function loadHealthChecks(directory: string): Promise<HealthCheck[]> {
@@ -40,9 +54,9 @@ export async function loadHealthChecks(directory: string): Promise<HealthCheck[]
 }
 
 export function initializeHealthCheck(logger: winston.Logger, healthCheck: HealthCheck): CronJob {
-  const minSeconds = healthCheck.buckets.minSeconds
-  const maxSeconds = healthCheck.buckets.maxSeconds
-  const precision = healthCheck.buckets.precision || 0.1
+  const minSeconds = healthCheck.durationBuckets.minSeconds
+  const maxSeconds = healthCheck.durationBuckets.maxSeconds
+  const precision = healthCheck.durationBuckets.precision || 0.1
   const steps = Math.ceil(Math.log(maxSeconds / minSeconds) / Math.log(1 + precision)) + 1
   const buckets = range(0, steps).map(i => Math.pow(1 + precision, i) * minSeconds)
   const durationHistogram = new prometheus.Histogram({
@@ -63,12 +77,18 @@ export function initializeHealthCheck(logger: winston.Logger, healthCheck: Healt
   return new CronJob(
     healthCheck.cron,
     async () => {
-      const duration = await runHealthCheck(logger, healthCheck)
-      if (duration !== undefined) {
-        durationHistogram.observe(duration)
-        successCounter.inc()
-      } else {
-        failureCounter.inc()
+      try {
+        const result = await runHealthCheck(logger, healthCheck)
+        durationHistogram.observe(result.duration)
+        if (!result.error) {
+          successCounter.inc()
+        } else {
+          failureCounter.inc()
+        }
+      } catch (err) {
+        logger.error('An error occured', {
+          error: (err && err.message) || undefined,
+        })
       }
     },
     undefined,
@@ -81,13 +101,14 @@ export async function runHealthCheck(
   logger: winston.Logger,
   healthCheck: HealthCheck,
   test?: boolean
-): Promise<number | undefined> {
-  try {
-    const duration = await healthCheck.execute(logger, test)
-    logger.debug(`Healthcheck ${healthCheck.name} succeeded (took ${(duration * 1000).toFixed(3)} msecs)`)
-    return duration
-  } catch (err) {
-    logger.warn(`Healthcheck ${healthCheck.name} failed`, { err })
-    return undefined
+): Promise<HealthCheckExecutionResult> {
+  const result = await healthCheck.execute(logger, test)
+  if (!result.error) {
+    logger.debug(`Healthcheck ${healthCheck.name} succeeded (took ${(result.duration * 1000).toFixed(3)} msecs)`)
+  } else {
+    logger.warn(`Healthcheck ${healthCheck.name} failed (took ${(result.duration * 1000).toFixed(3)} msecs)`, {
+      error: (result.error && result.error.message) || undefined,
+    })
   }
+  return result
 }

@@ -1,0 +1,15 @@
+{
+  "jsxBracketSameLine": true,
+  "printWidth": 120,
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "es5",
+  "overrides": [
+    {
+      "files": "*.i18n",
+      "options": {
+        "parser": "json"
+      }
+    }
+  ]
+}

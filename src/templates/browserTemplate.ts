@@ -3,14 +3,14 @@ import { HealthCheck } from '../HealthCheck'
 import { measureDuration } from '../utils'
 
 export interface BrowserTemplateOpts {
-  cron: string
+  schedule: number
   script: (page: puppeteer.Page) => Promise<void>
 }
 
 export function browserTemplate(name: string, opts: BrowserTemplateOpts): HealthCheck {
   return {
     name,
-    cron: opts.cron,
+    schedule: opts.schedule,
     execute: async (_logger, test) => {
       const browser = await puppeteer.launch({
         headless: !test,

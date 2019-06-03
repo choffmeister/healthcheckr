@@ -1,4 +1,3 @@
-import { CronJob } from 'cron'
 import * as fs from 'fs'
 import { range } from 'lodash'
 import * as path from 'path'
@@ -39,7 +38,7 @@ export interface HealthCheckExecutionResult {
 
 export interface HealthCheck {
   name: string
-  cron: string
+  schedule: number
   alertmanagerRules?: AlertmanagerRule[]
   execute: (logger: winston.Logger, test?: boolean) => Promise<HealthCheckExecutionResult>
 }
@@ -91,32 +90,29 @@ export function initializeHealthCheck(
   metrics: ReturnType<typeof initializeMetrics>,
   healthCheck: HealthCheck,
   additionalLabels: PrometheusLabelValue[]
-): CronJob {
+): void {
   const labels = additionalLabels.reduce((acc, { label, value }) => ({ ...acc, [label]: value }), {
     check: healthCheck.name,
   })
 
-  return new CronJob(
-    healthCheck.cron,
-    async () => {
-      try {
-        const result = await runHealthCheck(logger, healthCheck)
-        metrics.durationHistogram.observe(labels, result.duration)
-        if (!result.error) {
-          metrics.successCounter.inc(labels)
-        } else {
-          metrics.failureCounter.inc(labels)
-        }
-      } catch (err) {
-        logger.error('An error occured', {
-          error: (err && err.message) || undefined,
-        })
+  const loop = async () => {
+    try {
+      const result = await runHealthCheck(logger, healthCheck)
+      metrics.durationHistogram.observe(labels, result.duration)
+      if (!result.error) {
+        metrics.successCounter.inc(labels)
+      } else {
+        metrics.failureCounter.inc(labels)
       }
-    },
-    undefined,
-    true,
-    'UTC'
-  )
+    } catch (err) {
+      logger.error('An error occured', {
+        error: (err && err.message) || undefined,
+      })
+    }
+
+    setTimeout(() => loop(), healthCheck.schedule * (Math.random() * 0.2 + 0.9))
+  }
+  loop()
 }
 
 export async function runHealthCheck(

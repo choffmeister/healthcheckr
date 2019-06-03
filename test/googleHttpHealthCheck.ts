@@ -1,7 +1,7 @@
 import { httpTemplate } from '../src'
 
 export default httpTemplate('google_http', {
-  cron: '*/5 * * * * *',
+  schedule: 1000,
   request: {
     method: 'get',
     url: 'https://google.com',

@@ -74,12 +74,17 @@ export function initializeMetrics(additionalLabels: PrometheusLabelValue[]) {
     }),
     successCounter: new prometheus.Counter({
       name: 'healthcheckr_success_count',
-      help: 'Execution duration',
+      help: 'Successful count',
       labelNames,
     }),
     failureCounter: new prometheus.Counter({
       name: 'healthcheckr_failure_count',
-      help: 'Execution duration',
+      help: 'Failed count',
+      labelNames,
+    }),
+    totalCounter: new prometheus.Counter({
+      name: 'healthcheckr_total_count',
+      help: 'Total count',
       labelNames,
     }),
   }
@@ -99,6 +104,7 @@ export function initializeHealthCheck(
     try {
       const result = await runHealthCheck(logger, healthCheck)
       metrics.durationHistogram.observe(labels, result.duration)
+      metrics.totalCounter.inc(labels)
       if (!result.error) {
         metrics.successCounter.inc(labels)
       } else {

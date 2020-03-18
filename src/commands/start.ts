@@ -40,6 +40,7 @@ export default async function({ verbose, directory, additionalLabels, metricsAut
             [username]: password,
           },
         })
+        // @ts-ignore
         return middleware(req, res, next)
       }
     : (_req, _res, next) => next()

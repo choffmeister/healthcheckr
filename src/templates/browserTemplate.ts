@@ -18,7 +18,7 @@ export function browserTemplate(name: string, opts: BrowserTemplateOpts): Health
       })
       try {
         const page = await browser.newPage()
-        await page.emulateMedia('screen')
+        await page.emulateMediaType('screen')
         await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 })
         return await measureDuration(() => opts.script(page))
       } finally {

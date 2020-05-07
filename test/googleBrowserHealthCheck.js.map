@@ -1,0 +1,1 @@
+{"version":3,"file":"googleBrowserHealthCheck.js","sourceRoot":"","sources":["googleBrowserHealthCheck.ts"],"names":[],"mappings":";;AAAA,gCAAwC;AAExC,kBAAe,qBAAe,CAAC,gBAAgB,EAAE;IAC/C,QAAQ,EAAE,IAAI;IACd,MAAM,EAAE,KAAK,EAAC,IAAI,EAAC,EAAE;QACnB,MAAM,IAAI,CAAC,IAAI,CAAC,oBAAoB,EAAE,EAAE,SAAS,EAAE,cAAc,EAAE,CAAC,CAAA;IACtE,CAAC;CACF,CAAC,CAAA"}

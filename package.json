@@ -1,6 +1,6 @@
 {
   "name": "healthcheckr",
-  "version": "0.1.0-rc1",
+  "version": "0.1.0-rc2",
   "main": "src/index.js",
   "typings": "src/index.ts",
   "license": "MIT",
